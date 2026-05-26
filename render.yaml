@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: sepsis-backend
+    env: docker
+    repo: YOUR_GITHUB_REPO_URL
+    dockerfilePath: backend/Dockerfile
+    plan:
+      - name: build
+        type: docker
+        dockerfilePath: backend/Dockerfile
+    envVars:
+      JWT_SECRET: "SepsisPrediction2026SecureKey"
+      MODEL_PATH: "models/final_sepsis_model.pkl"
+      REPORT_PATH: "results"
+    autoDeploy: true
+    healthCheckPath: "/health"
+    startCommand: "uvicorn backend/app/main:app --host 0.0.0.0 --port ${PORT:-8000}"
