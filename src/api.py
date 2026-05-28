@@ -1,4 +1,7 @@
 import os
+import sys
+# Ensure the project root (one level up) is on the Python import path so that imports from the `src` package work when running this script directly
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import joblib
 import pandas as pd
 import numpy as np
@@ -7,8 +10,9 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
 
-from data_loader import load_data
-from main import get_prediction_data, get_realtime_timeline
+# Local imports – after adjusting sys.path the `src` package can be imported
+from src.data_loader import load_data
+from src.main import get_prediction_data, get_realtime_timeline
 import shap
 import threading
 import sys
@@ -17,7 +21,7 @@ import io
 app = Flask(__name__)
 CORS(app, resources={r"/api/*": {"origins": "*"}}) # Allow React frontend to access API
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 MODEL_FILE = os.path.join(BASE_DIR, "models", "final_sepsis_model.pkl")
 DATA_PATH = os.path.join(BASE_DIR, "data")
 RESULTS_DIR = os.path.join(BASE_DIR, "results")

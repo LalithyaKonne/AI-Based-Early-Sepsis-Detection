@@ -8,6 +8,8 @@ import {
   Lock, ArrowRight, UploadCloud, FileText, CheckCircle, AlertTriangle, FilePlus
 } from 'lucide-react';
 import './index.css';
+// Default to local Flask API when VITE_API_URL is not defined
+const API = '/api'; // Use Vite proxy for backend calls
 
 function App() {
   const [view, setView] = useState('login'); // login | selection | input | dashboard | train
@@ -80,7 +82,7 @@ function App() {
   const fetchExistingPatient = async (id) => {
     setLoading(true); setError(null);
     try {
-      const response = await fetch(`/api/patient/${id}`).catch(() => {
+      const response = await fetch(`${API}/patient/${id}`).catch(() => {
         throw new Error("Cannot connect to backend. Is the Flask API running?");
       });
       let data;
@@ -97,7 +99,7 @@ function App() {
   const predictRawPatient = async (psvData) => {
     setLoading(true); setError(null);
     try {
-      const response = await fetch('/api/predict_raw', {
+      const response = await fetch(`${API}/predict_raw`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ data: psvData }),
@@ -120,7 +122,7 @@ function App() {
     try {
       const formData = new FormData();
       formData.append('file', file);
-      const response = await fetch('/api/predict_upload', {
+      const response = await fetch(`${API}/predict_upload`, {
         method: 'POST',
         body: formData,
       }).catch(() => {
@@ -146,7 +148,7 @@ function App() {
       const username = e.target.username.value;
       const password = e.target.password.value;
       try {
-        const res = await fetch('/api/login', {
+        const res = await fetch(`${API}/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ username, password })
@@ -845,13 +847,13 @@ function App() {
     const startTraining = async () => {
         setTrainStatus('Starting...');
         try {
-            const res = await fetch('/api/train', { method: 'POST' });
+            const res = await fetch(`${API}/train`, { method: 'POST' });
             const data = await res.json();
             if(!res.ok) throw new Error(data.message || 'Failed');
             setTrainStatus('Training in progress...');
             
             const interval = setInterval(async () => {
-                const statRes = await fetch('/api/train_status');
+                const statRes = await fetch(`${API}/train_status`);
                 const statData = await statRes.json();
                 setTrainLogs(statData.logs || []);
                 if(!statData.is_training) {
