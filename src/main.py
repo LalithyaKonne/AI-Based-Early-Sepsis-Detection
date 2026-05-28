@@ -3,12 +3,16 @@ import pandas as pd
 import joblib
 import numpy as np
 
-from data_loader import load_data
-from preprocessing import preprocess
-from features import extract_features
-from train_models import train_best_models
-from utils import severity, most_affected_organ
-from visualize import (
+from fastapi import FastAPI
+
+app = FastAPI()
+
+from src.data_loader import load_data
+from src.preprocessing import preprocess
+from src.features import extract_features
+from src.train_models import train_best_models
+from src.utils import severity, most_affected_organ
+from src.visualize import (
     plot_feature_importance, plot_roc_curve,
     plot_confusion_matrix, plot_precision_recall
 )
