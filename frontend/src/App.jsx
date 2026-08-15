@@ -11,6 +11,12 @@ import './index.css';
 // Default to local Flask API when VITE_API_URL is not defined
 const API = '/api'; // Use Vite proxy for backend calls
 
+const getRiskLevel = (probability) => {
+  if (probability < 0.30) return 'LOW';
+  if (probability < 0.70) return 'MODERATE';
+  return 'HIGH';
+};
+
 function App() {
   const [view, setView] = useState('login'); // login | selection | input | dashboard | train
   const [patientType, setPatientType] = useState('existing'); // existing | new | train
@@ -152,9 +158,19 @@ function App() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ username, password })
-        }).catch(() => { throw new Error("Backend offline."); });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Login failed');
+        }).catch(() => { throw new Error("Backend offline. Please check if Flask server is running."); });
+        
+        let data = {};
+        if (res.headers.get("content-type")?.includes("application/json")) {
+          try {
+            data = await res.json();
+          } catch (_) {}
+        }
+        
+        if (!res.ok) {
+          throw new Error(data.error || `Login failed (Status ${res.status})`);
+        }
+        
         setAuthUser({ username: data.username, role: data.role });
         setView('selection');
       } catch (err) {
@@ -221,17 +237,6 @@ function App() {
             <h3 style={{color: 'var(--primary-color)'}}>New Patient</h3>
             <p style={{color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '0.5rem'}}>Upload new patient ICU data</p>
           </div>
-          
-          {authUser && authUser.role === 'Admin' && (
-            <div 
-              className={`select-card panel ${patientType === 'train' ? 'active' : ''}`}
-              onClick={() => setPatientType('train')}
-            >
-              <Activity className="card-icon" />
-              <h3 style={{color: 'var(--primary-color)'}}>Model Training</h3>
-              <p style={{color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '0.5rem'}}>Update AI with new insights</p>
-            </div>
-          )}
         </div>
 
         <button className="btn btn-primary" onClick={() => {
@@ -378,6 +383,7 @@ function App() {
     } = patientData;
 
     const probPercentage = (probability * 100).toFixed(1);
+    const riskLevel = getRiskLevel(probability);
     const hrChartData = hr_timeline.map((h) => ({ time: h.time, value: h.value || 0 }));
     const riskChartData = risk_timeline.map((r) => ({ time: r.time, prob: r.prob || 0 }));
 
@@ -393,7 +399,7 @@ function App() {
         <header className="dashboard-header">
           <div style={{display:'flex', alignItems:'center', gap:'1rem'}}>
             <Activity color="var(--primary-color)" size={28} />
-            <h1>AI SEPSIS EARLY WARNING SYSTEM</h1>
+            <h1>AI-BASED EARLY SEPSIS DETECTION</h1>
           </div>
           <div style={{display:'flex', gap:'0.5rem'}}>
             <button className="btn btn-primary" onClick={() => window.print()} style={{background: 'var(--secondary-color)', border: 'none', display: 'flex', alignItems: 'center', gap: '8px'}}>
@@ -414,8 +420,8 @@ function App() {
             <div style={{display:'flex', alignItems:'center', gap:'15px'}}>
               <Activity size={40} color="var(--primary-color)" />
               <div>
-                <h1 style={{fontSize:'24px', margin:0, color:'var(--primary-color)'}}>GENERAL HOSPITAL CLINICAL REPORT</h1>
-                <p style={{margin:0, color:'var(--text-muted)', fontSize:'12px'}}>AI-Integrated Diagnostic Services • ICU Department</p>
+                <h1 style={{fontSize:'24px', margin:0, color:'var(--primary-color)'}}>AI-BASED EARLY SEPSIS DETECTION</h1>
+                <p style={{margin:0, color:'var(--text-muted)', fontSize:'12px'}}>AI-Based Patient Risk Assessment Report</p>
               </div>
             </div>
             <div style={{textAlign:'right'}}>
@@ -429,7 +435,6 @@ function App() {
             <div className="report-grid">
               <div className="report-item"><span>Patient ID:</span> <strong>{patient_id}</strong></div>
               <div className="report-item"><span>Admission Time:</span> <strong>{icu_hours} Hours ICU</strong></div>
-              <div className="report-item"><span>Department:</span> <strong>Emergency Cardiology</strong></div>
             </div>
           </div>
 
@@ -455,7 +460,7 @@ function App() {
                   <td>Temperature</td>
                   <td>{vitals.temp} °C</td>
                   <td className={vitals.temp > 38 || vitals.temp < 36 ? 'text-danger' : ''}>{vitals.temp > 38 ? 'Fever' : vitals.temp < 36 ? 'Hypothermia' : 'Stable'}</td>
-                  <td>98.2% Accuracy</td>
+                  <td></td>
                 </tr>
                 <tr>
                   <td>Resp. Rate</td>
@@ -473,15 +478,15 @@ function App() {
             </table>
           </div>
 
-          <div className="report-section" style={{background: prediction === 'Sepsis' ? '#fff5f5' : '#f0f9ff', padding: '20px', borderRadius: '8px', border: `2px solid ${prediction === 'Sepsis' ? '#fecaca' : '#bae6fd'}`}}>
-            <h2 className="report-section-title" style={{borderBottomColor: prediction === 'Sepsis' ? '#fecaca' : '#bae6fd'}}>AI Sepsis Risk Assessment</h2>
+          <div className="report-section" style={{background: riskLevel === 'HIGH' ? '#fff5f5' : riskLevel === 'MODERATE' ? '#fffbeb' : '#f0f9ff', padding: '20px', borderRadius: '8px', border: `2px solid ${riskLevel === 'HIGH' ? '#fecaca' : riskLevel === 'MODERATE' ? '#fef3c7' : '#bae6fd'}`}}>
+            <h2 className="report-section-title" style={{borderBottomColor: riskLevel === 'HIGH' ? '#fecaca' : riskLevel === 'MODERATE' ? '#fef3c7' : '#bae6fd'}}>AI Sepsis Risk Assessment</h2>
             <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
               <div>
-                <p style={{fontSize: '28px', fontWeight: 800, margin: '0', color: prediction === 'Sepsis' ? '#dc2626' : '#0369a1'}}>
-                  {prediction === 'Sepsis' ? 'POSITIVE DETECTION' : 'NEGATIVE DETECTION'}
+                <p style={{fontSize: '28px', fontWeight: 800, margin: '0', color: riskLevel === 'HIGH' ? '#dc2626' : riskLevel === 'MODERATE' ? '#d97706' : '#0369a1'}}>
+                  {riskLevel === 'HIGH' ? 'HIGH RISK' : riskLevel === 'MODERATE' ? 'MODERATE RISK' : 'LOW RISK'}
                 </p>
                 <p style={{fontSize: '16px', margin: '5px 0', color: 'var(--text-main)'}}>
-                  Confidence Level: <strong>{probPercentage}%</strong>
+                  Risk Probability: <strong>{probPercentage}%</strong>
                 </p>
               </div>
               <div style={{textAlign: 'right'}}>
@@ -501,9 +506,12 @@ function App() {
           </div>
 
           <div className="report-footer">
-            <div style={{borderTop: '1px solid #cbd5e1', paddingTop: '10px', display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#64748b'}}>
-              <p>Electronically Signed by: AI-Sepsis Warning System v2.0</p>
-              <p>Reference: {patient_id}-{Date.now()}</p>
+            <div style={{borderTop: '1px solid #cbd5e1', paddingTop: '10px', display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '12px', color: '#64748b'}}>
+              <p>AI-generated risk assessment for educational and demonstration purposes.</p>
+              <p>This system provides an AI-based risk assessment for educational and demonstration purposes and is not a substitute for professional medical judgment.</p>
+              <div style={{display: 'flex', justifyContent: 'flex-end', marginTop: '-15px'}}>
+                <p>Reference: {patient_id}-{Date.now()}</p>
+              </div>
             </div>
           </div>
         </div>
@@ -540,13 +548,6 @@ function App() {
                 <span className="info-value">{patient_id}</span>
               </div>
               <div className="info-item">
-                <span className="info-label">ICU Bed</span>
-                <span className="info-value">
-                  <Bed size={16} style={{verticalAlign:'middle', marginRight:'4px', color:'var(--text-muted)'}}/> 
-                  {(parseInt((patient_id || '0').toString().replace(/\D/g, ''), 10) || 1) % 50 + 1}
-                </span>
-              </div>
-              <div className="info-item">
                 <span className="info-label">ICU Hours</span>
                 <span className="info-value">
                   <Clock size={16} style={{verticalAlign:'middle', marginRight:'4px', color:'var(--text-muted)'}}/> 
@@ -555,8 +556,8 @@ function App() {
               </div>
               <div className="info-item">
                  <span className="info-label">Sepsis Risk Status</span>
-                 <span className={`info-value ${prediction === 'Sepsis' ? 'text-danger' : 'text-safe'}`} style={{fontWeight: 700}}>
-                   {prediction === 'Sepsis' ? 'ALERT (HIGH)' : 'SAFE (LOW)'}
+                 <span className={`info-value ${riskLevel === 'HIGH' ? 'text-danger' : riskLevel === 'MODERATE' ? 'text-warning' : 'text-safe'}`} style={{fontWeight: 700}}>
+                   {riskLevel === 'HIGH' ? 'HIGH RISK' : riskLevel === 'MODERATE' ? 'MODERATE RISK' : 'LOW RISK'}
                  </span>
               </div>
             </div>
@@ -618,22 +619,22 @@ function App() {
               <div className="panel" style={{textAlign: 'center', display:'flex', flexDirection:'column', justifyContent:'center'}}>
                 <h2 className="panel-title" style={{justifyContent:'center'}}><AlertTriangle className="panel-icon"/> Prediction Summary</h2>
                 
-                <div className={`pred-risk ${prediction === 'Sepsis' ? 'text-danger' : 'text-safe'}`}>
-                  {prediction === 'Sepsis' ? 'SEPSIS DETECTED' : 'NO SEPSIS'}
+                <div className={`pred-risk ${riskLevel === 'HIGH' ? 'text-danger' : riskLevel === 'MODERATE' ? 'text-warning' : 'text-safe'}`}>
+                  {riskLevel === 'HIGH' ? 'HIGH RISK' : riskLevel === 'MODERATE' ? 'MODERATE RISK' : 'LOW RISK'}
                 </div>
                 
                 <div className="pred-prob">
-                  Probability: <strong>{probPercentage}%</strong>
+                  Risk Probability: <strong>{probPercentage}%</strong>
                 </div>
                 <div style={{color: 'var(--text-muted)'}}>
-                  Severity Level: <strong className={prediction === 'Sepsis' ? 'text-warning' : 'text-safe'}>{severity}</strong>
+                  Severity Level: <strong className={riskLevel === 'HIGH' ? 'text-warning' : 'text-safe'}>{severity}</strong>
                 </div>
 
                 <div className="meter-wrapper">
                   <div style={{fontSize:'0.85rem', color:'var(--text-muted)', marginBottom:'0.5rem', textAlign:'left'}}>Risk Meter</div>
                   <div className="meter-bg">
                     <div 
-                      className={`meter-fill ${prediction === 'Sepsis' ? 'fill-danger' : 'fill-safe'}`} 
+                      className={`meter-fill ${riskLevel === 'HIGH' ? 'fill-danger' : riskLevel === 'MODERATE' ? 'fill-warn' : 'fill-safe'}`} 
                       style={{ width: `${probPercentage}%` }}
                     ></div>
                   </div>
@@ -728,7 +729,7 @@ function App() {
                   </ul>
                   <div style={{marginTop: '2rem', padding: '1rem', background: '#e0f2fe', borderRadius: '8px', color: 'var(--primary-color)', fontSize: '0.9rem', textAlign:'center'}}>
                     <FileText size={16} style={{verticalAlign:'middle', marginRight:'6px'}}/>
-                    Monitoring protocol fully engaged.
+                    AI-generated risk assessment based on the provided patient data.
                   </div>
                 </div>
               </div>
@@ -753,10 +754,16 @@ function App() {
                     <tbody>
                       {[...risk_timeline].reverse().map((r, idx) => {
                         const probVal = parseFloat(r.prob);
-                        let resText = "No Sepsis";
+                        const histRisk = getRiskLevel(probVal);
+                        let resText = "LOW RISK";
                         let resClass = "text-safe";
-                        if (probVal >= 0.35) { resText = "Sepsis Alert"; resClass = "text-danger"; }
-                        else if (probVal >= 0.20) { resText = "Moderate Risk"; resClass = "text-warning"; }
+                        if (histRisk === 'HIGH') {
+                          resText = "HIGH RISK";
+                          resClass = "text-danger";
+                        } else if (histRisk === 'MODERATE') {
+                          resText = "MODERATE RISK";
+                          resClass = "text-warning";
+                        }
 
                         return (
                           <tr key={idx}>
